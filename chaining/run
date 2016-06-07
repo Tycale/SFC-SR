@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+
+import sys, os, re, subprocess
+
+NAME="name: chaining"
+ROOT="root: ~/"
+TMP_FILE="chaining.yml"
+
+TMUXINATOR_DIR="/root/.tmuxinator"
+
+
+def usage():
+	print('Usage: {} project.yml toponame'.format(sys.argv[0]))
+	sys.exit(-1)
+
+
+if len(sys.argv) != 3 :
+    usage()
+
+# Retreive mapping from toponame
+mapping={}
+fileMap = open("../topologies/{}/{}.topo.sh".format(sys.argv[2], sys.argv[2]))
+
+for line in fileMap :
+
+    res = re.match("# (.*) loop: (.*)", line)
+    if res :
+        mapping[res.group(1)] = res.group(2)
+
+fileMap.close()
+
+
+yml = open(sys.argv[1])
+
+gen = open("{}/generated-sr6chaining.yml".format(TMUXINATOR_DIR), 'w+')
+
+for line in yml :
+
+    for key in mapping :
+        line = line.replace("@{}".format(key), mapping[key])
+        line = line.replace("${}".format(key), mapping[key].replace("/64", ""))
+        line = line.replace("§{}".format(key), mapping[key].replace("1/64", "2").replace("fc00:", "fc00:4"))
+
+    gen.write(line)
+
+gen.close()
+yml.close()
+
+res = subprocess.call("tmuxinator debug generated-sr6chaining", shell=True)
+
+print(res)

@@ -1,0 +1,193 @@
+***************
+*** 5,38 ****
+  int prod=0;
+  int cons=0;
+  
+  void producer_service(struct seg6_sock *sk, struct nlattr **attrs, struct nlmsghdr* nlh) {
+-     struct wrapper *el;
+-     struct in_packet_buffer *buf;
+      int pkt_len;
+      char *pkt_data;
+  
+-     buf = in_buffer;
+- 
+      pkt_len = nla_get_u32(attrs[SEG6_ATTR_PACKET_LEN]);
+      pkt_data = nla_data(attrs[SEG6_ATTR_PACKET_DATA]);
+  
+-     producer_pc_wait(buf);
+  
+-     el = buf->buffer + buf->writepos;
+-     el->attrs = attrs;
+-     el->nlh = nlh;
+-     advance_wr_pos(buf);
+- 
+-     //printf("Prod (%p) %d: %p %p \n", el, pkt_len, attrs, nlh);
+-     prod++;
+- 
+-     producer_pc_post(buf);
+  }
+  
+  void *consumer_service(void * args) {
+-     struct in_packet_buffer *buf;
+-     struct wrapper *el;
+-     struct seg6_sock *sk, *sk_in;
+  
+      struct nlattr **attrs;
+      struct nlmsghdr* nlh;
+--- 5,36 ----
+  int prod=0;
+  int cons=0;
+  
++ __thread size_t __thr_id;
++ 
++ struct lfqueue *nfq;
++ 
++ struct thr_arg {
++     void *callback;
++     int tid;
++ };
++ 
+  void producer_service(struct seg6_sock *sk, struct nlattr **attrs, struct nlmsghdr* nlh) {
++     struct wrapper el;
+      int pkt_len;
+      char *pkt_data;
+  
+      pkt_len = nla_get_u32(attrs[SEG6_ATTR_PACKET_LEN]);
+      pkt_data = nla_data(attrs[SEG6_ATTR_PACKET_DATA]);
+  
++     el.attrs = attrs;
++     el.nlh = nlh;
+  
++     lfq_push(nfq, &el);
+  }
+  
+  void *consumer_service(void * args) {
++     struct wrapper el;
++     struct seg6_sock *sk;
+  
+      struct nlattr **attrs;
+      struct nlmsghdr* nlh;
+***************
+*** 40,64 ****
+  
+      int pkt_len;
+      char *pkt_data;
+  
+      sk = seg6_socket_create(256*getpagesize(), 64);
+  
+-     service_t *service = (service_t *) args;
+  
+-     // FIXME
+-     buf = in_buffer;
+-     sk_in = buf->sk;
+  
+      for(;;) {
+-         consumer_pc_wait(buf);
+- 
+-         el = buf->buffer + buf->readpos;
+-         attrs = el->attrs;
+-         nlh = el->nlh;
+-         advance_rd_pos(buf);
+-         cons++;
+  
+-         consumer_pc_post(buf);
+  
+          pkt_len = nla_get_u32(attrs[SEG6_ATTR_PACKET_LEN]);
+          pkt_data = nla_data(attrs[SEG6_ATTR_PACKET_DATA]);
+--- 38,57 ----
+  
+      int pkt_len;
+      char *pkt_data;
++     struct thr_arg *t_arg = args;
+  
+      sk = seg6_socket_create(256*getpagesize(), 64);
+  
++     service_t *service = (service_t *) t_arg->callback;
+  
++     set_thr_id(t_arg->tid);
++     free(t_arg);
+  
+      for(;;) {
++         lfq_pop(nfq, &el);
+  
++         attrs = el.attrs;
++         nlh = el.nlh;
+  
+          pkt_len = nla_get_u32(attrs[SEG6_ATTR_PACKET_LEN]);
+          pkt_data = nla_data(attrs[SEG6_ATTR_PACKET_DATA]);
+***************
+*** 107,112 ****
+      struct nlmem_cb cb;
+  	pthread_t * threads;
+      int i, res;
+  
+      init_pc_buffer(&in_buffer);
+      in_buffer->sk = sk;
+--- 100,108 ----
+      struct nlmem_cb cb;
+  	pthread_t * threads;
+      int i, res;
++     struct thr_arg *t_arg;
++ 
++     nfq = lfq_init(1, nbr_thread, sizeof(struct wrapper));
+  
+      init_pc_buffer(&in_buffer);
+      in_buffer->sk = sk;
+***************
+*** 114,121 ****
+      sk->nlm_sk->delayed_release = 1;
+  
+      threads = (pthread_t *) malloc(nbr_thread*sizeof (pthread_t));
+-     for(i=0; i<nbr_thread; i++)
+-         pthread_create(threads+i, NULL, &consumer_service, (void *) seg6_callback);
+  
+      res = service_launch(sk, in6, nlmem_callback, &producer_service, type);
+  
+--- 110,122 ----
+      sk->nlm_sk->delayed_release = 1;
+  
+      threads = (pthread_t *) malloc(nbr_thread*sizeof (pthread_t));
++     for(i=0; i<nbr_thread; i++) {
++         t_arg = malloc(sizeof(*t_arg));
++         t_arg->callback = (void *)seg6_callback;
++         t_arg->tid = i;
++ 
++         pthread_create(threads+i, NULL, &consumer_service, (void *) t_arg);
++     }
+  
+      res = service_launch(sk, in6, nlmem_callback, &producer_service, type);
+  
+***************
+*** 124,129 ****
+  
+      free(threads);
+  
+      return res;
+  }
+  
+--- 125,132 ----
+  
+      free(threads);
+  
++     lfq_destroy(nfq);
++ 
+      return res;
+  }
+  
+***************
+*** 165,170 ****
+       */
+      nlmem_set_cb(&cb, NLMEM_CB_ACK, nlmem_callback, NULL);
+  
+      return seg6_send_and_recv(sk, msg, &cb);
+  }
+  
+--- 168,175 ----
+       */
+      nlmem_set_cb(&cb, NLMEM_CB_ACK, nlmem_callback, NULL);
+  
++     set_thr_id(0);
++ 
+      return seg6_send_and_recv(sk, msg, &cb);
+  }
+  

@@ -1,0 +1,16 @@
+***************
+*** 16,21 ****
+  #include "../../seg6ctl/libnlmem/nlmem.h"
+  #include "../../seg6ctl/libseg6/seg6.h"
+  #include "pc_buffer.h"
+  
+  #ifndef HEXDUMP_COLS
+  #define HEXDUMP_COLS 8
+--- 16,22 ----
+  #include "../../seg6ctl/libnlmem/nlmem.h"
+  #include "../../seg6ctl/libseg6/seg6.h"
+  #include "pc_buffer.h"
++ #include "lfq.h"
+  
+  #ifndef HEXDUMP_COLS
+  #define HEXDUMP_COLS 8

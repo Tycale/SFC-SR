@@ -1,0 +1,10 @@
+To install :
+
+    EDITOR=vim tmuxinator new generated-sr6chaining.yml
+
+To generated a bash script to run tmux with the configuration, run  :
+
+    ./run path.yml toponame > res.sh
+
+
+Note: be aware that the directory to join tmuxinator is hardcoded into run.

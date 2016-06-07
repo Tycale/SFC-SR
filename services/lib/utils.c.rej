@@ -1,0 +1,17 @@
+***************
+*** 6,12 ****
+  
+  void verbose(char *str) {
+      if(verbose_flag)
+-         printf(str);
+  }
+  
+  
+--- 6,12 ----
+  
+  void verbose(char *str) {
+      if(verbose_flag)
++         printf("%s", str);
+  }
+  
+  

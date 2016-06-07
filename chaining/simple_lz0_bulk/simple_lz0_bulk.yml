@@ -1,0 +1,89 @@
+name: chaining
+root: ~/sr6/
+
+# Optional tmux socket
+# socket_name: foo
+
+# Runs before everything. Use it to start daemons etc.
+pre: 
+    - make -C services/compression/  || exit
+    - make -C services/bulk/  || exit
+      # make -C services/debulk/  || exit
+    - ./topologies/clear || exit
+    - bash topologies/simple/simple.topo.sh || exit
+
+# Runs in each window and pane before window/pane specific commands. Useful for setting up interpreter versions.
+# pre_window: rbenv shell 2.0.0-p247
+
+# Pass command line options to tmux. Useful for specifying a different tmux.conf.
+# tmux_options: -f ~/.tmux.mac.conf
+
+# Change the command to call tmux.  This can be used by derivatives/wrappers like byobu.
+# tmux_command: byobu
+
+# Specifies (by name or index) which window will be selected on project startup. If not set, the first window is used.
+# startup_window: logs
+
+# Controls whether the tmux session should be attached to automatically. Defaults to true.
+# attach: false
+
+# Runs after everything. Use it to attach to tmux with custom options etc.
+# post: tmux -CC attach -t chaining
+
+windows:
+    - iperf:
+        layout: main-vertical
+        panes:
+            - A:
+                - ip netns exec A bash
+                - ip link set dev A-0 mtu 1300
+                - ethtool -K A-0 tx off
+                #- iperf -V -c $C -B $A
+                #- ping6 $C -I $A
+                - iperf3 -c $C -B $A -l 4G
+            - C:
+                - ip netns exec C bash
+                #- iperf -V -s -B $C
+                - ethtool -K C-0 tx off
+                - ethtool -K C-1 tx off
+                - iperf3 -s -B $C
+    - A2:
+            layout: main-horizontal
+            panes:
+                - A2:
+                    - ip netns exec A bash
+                    - tcpdump -i A-0
+    - B:
+        layout: main-horizontal
+        panes:
+            - B:
+                - ip netns exec B bash
+                - ip -6 route del @C
+                - ip -6 route add @C via §C encap seg6 mode encap segs $D,$E,$F,$G,$H
+    - lz0:
+        layout: main-vertical
+        panes:
+            - E:
+                - ip netns exec E bash
+                - ip link set dev E-0 mtu 9000
+                - ip link set dev E-1 mtu 9000
+                - ./services/compression/compression --type lz0 -c $E --memory 512
+            - F:
+                - ip netns exec F bash
+                - ip link set dev F-0 mtu 9000
+                - ip link set dev F-1 mtu 9000
+                - ./services/compression/compression --type lz0 -d $F --memory 512
+    - bulk:
+        layout: main-vertical
+        panes:
+            - D:
+                - ip netns exec D bash
+                - ip link set dev D-0 mtu 9000
+                - ip link set dev D-1 mtu 9000
+                - ./services/bulk/bulk -b --memory 512 $D 
+            - G:
+                - ip netns exec G bash
+                - ip link set dev G-0 mtu 9000
+                - ./services/bulk/bulk -d --memory 512 $G 
+
+

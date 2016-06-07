@@ -1,0 +1,85 @@
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# LaTex
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.pdf
+*.toc
+*.auxlock
+*.synctex.gz
+latex/thesis/main-blx.bib
+latex/thesis/main.loa
+
+
+
+# Debug files
+*.dSYM/
+
+# Python
+*.pyc
+
+# binaries
+services/bulk/bulk
+services/debulk/debulk
+services/count/count
+services/tun_interface/tun_interface
+services/compression/compression
+minilzo-2.09/testmini
+services/tun_interface/tun_interface
+services/memlink_test/memlink_test
+services/refrag/refrag
+
+# Generated file
+chaining/*/*.sh
+
+# Uncompressed for snort
+snort/daq-2.0.6/
+snort/snort-2.9.8.0/
+
+
+# brainstorm products
+.idea
+
+*tags
+launch.sh
+
+# Mac os X
+.DS_Store
+
+*.lof
+*.lol
+*.lot
+*.run.xml
+

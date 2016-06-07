@@ -1,0 +1,28 @@
+#!/bin/bash
+
+TOPO_DIR="../topologies"
+NANO_DIR="../nanonet"
+
+NTFL="${NANO_DIR}/tools/ntfl2topo.sh"
+NANO="${NANO_DIR}/build"
+
+if [ $# -gt 1 ]; then
+	echo "Usage: ./build topo"
+	exit
+fi
+
+if [ $# == 0 ]; then
+	for d in */; do
+		./build ${d%?}
+	done
+else
+	TOPO="$1"
+
+	TOPO_PATH="${TOPO}/${TOPO}"
+	./${NTFL} ${TOPO_PATH}.ntfl ${TOPO} > ${TOPO_PATH}.py 
+	./${NANO} ${TOPO_PATH}.py ${TOPO} ${TOPO_DIR}/${TOPO}
+fi
+
+
+
+

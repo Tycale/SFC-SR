@@ -1,0 +1,127 @@
+name: chaining
+root: ~/sr6/
+
+# Optional tmux socket
+# socket_name: foo
+
+# Runs before everything. Use it to start daemons etc.
+pre: 
+    - make -C services/bulk/ || exit
+    - make -C services/count/ || exit
+    - ./topologies/clear || exit
+      #- bash topologies/simple/simple.topo.sh || exit
+    - bash topologies/simple_lag/simple_lag.topo.sh || exit
+
+# Runs in each window and pane before window/pane specific commands. Useful for setting up interpreter versions.
+# pre_window: rbenv shell 2.0.0-p247
+
+# Pass command line options to tmux. Useful for specifying a different tmux.conf.
+# tmux_options: -f ~/.tmux.mac.conf
+
+# Change the command to call tmux.  This can be used by derivatives/wrappers like byobu.
+# tmux_command: byobu
+
+# Specifies (by name or index) which window will be selected on project startup. If not set, the first window is used.
+startup_window: iperf
+
+# Controls whether the tmux session should be attached to automatically. Defaults to true.
+# attach: false
+
+# Runs after everything. Use it to attach to tmux with custom options etc.
+# post: tmux -CC attach -t chaining
+
+windows:
+    - iperf:
+        layout: main-horizontal
+        panes:
+            - A:
+                - ip netns exec A bash
+                - ip link set dev A-0 mtu 1300
+                - ethtool -K A-0 tx off
+                - cd tests/SRFT
+                - SRFT_CONFIG="conf/local_bulk.conf" python test_bulk_buf.py
+                #- iperf -V -c $G -B $A
+                #- ping6 $G -I $A -s 1000 
+                - iperf3 -c $G -B $A
+            - G:
+                - ip netns exec G bash
+                - ip link set dev G-0 mtu 9000
+                - ip link set dev G-1 mtu 9000
+                - ethtool -K G-0 tx off
+                - ethtool -K G-1 tx off
+                  #- iperf -V -s -B $G
+                - iperf3 -s -B $G
+    - dump:
+        layout: main-horizontal
+        panes:
+            - dump: 
+                - ip netns exec B bash
+                - ip link set dev B-0 mtu 9000
+                - ip link set dev B-1 mtu 9000
+
+            - lolo:
+                - ip netns exec A bash
+                - tcpdump -w dump/beforeTun -i A-0
+           
+            - dum: 
+                - ip netns exec D bash
+                - tcpdump -w dump/beforeBulk -i D-0 
+           
+            - F:
+                - ip netns exec E bash
+                - tcpdump -i E-1 -w dump/AfterBulk
+           
+            - Fbis:
+                - ip netns exec G bash
+                - tcpdump -i G-0 -w dump/AfterTun
+    - tunnel:
+        layout: main-horizontal
+        panes:
+            - B:
+                - ip netns exec B bash
+                  #                - ip -6 route delete @G
+                  #                - ip -6 link add mytun0 type ip6tnl mode ip6ip6 encaplimit none local $B remote $F srh $D,$E
+                  #                - ip -6 route add @G dev mytun0
+                - ip -6 route del @G
+                - ip -6 route add @G via §C encap seg6 mode encap segs $D,$E,$F mtu 9000
+
+                - ip link set dev B-0 mtu 9000
+                - ip link set dev B-1 mtu 9000
+                  #- ifconfig mytun0 up
+    - bulk:
+        layout: main-horizontal
+        panes:
+            - D:
+                - ip netns exec D bash
+                - ip link set dev D-0 mtu 9000
+                - ip link set dev D-1 mtu 9000
+                - ip sr action flush
+                - ./services/bulk/bulk -b -t tcp_list  --delta 100  $D 
+                #- gdb gdb --args ./services/bulk/bulk -b -t tcp --memory 512  $D -v
+                #- run
+    - count:
+        layout: main-horizontal
+        panes:
+            - E:
+                - ip netns exec E bash
+                - ip link set dev E-0 mtu 9000
+                - ip link set dev E-1 mtu 9000
+                - ip sr action flush
+                  #- ./services/bulk/bulk -d -t tcp --memory 512 $E -v
+            - C:
+                - ip netns exec C bash
+                - ip link set dev C-0 mtu 9000
+                - ip link set dev C-1 mtu 9000
+    - services:
+        layout: main-horizontal
+        panes:
+            - F:
+                - ip netns exec F bash
+                - ip link set dev F-0 mtu 9000
+                - ip link set dev F-1 mtu 9000
+                #- ./services/count/count $F
+                #- tcpdump -i F-0
+            - Fbis:
+                - ip netns exec F bash
+                - tcpdump -i F-0
+

@@ -1,0 +1,12 @@
+[submodule "seg6ctl"]
+	path = seg6ctl
+	url = git@github.com:Tycale/seg6ctl.git
+[submodule "scapy"]
+	path = scapy
+	url = git@github.com:Nhoutain/scapy.git
+[submodule "iproute2"]
+	path = iproute2
+	url = git@github.com:segment-routing/iproute2.git
+[submodule "lz4"]
+	path = lz4
+	url = git@github.com:Cyan4973/lz4.git

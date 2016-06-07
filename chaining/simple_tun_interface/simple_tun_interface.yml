@@ -1,0 +1,75 @@
+name: chaining
+root: ~/sr6/
+
+# Optional tmux socket
+# socket_name: foo
+
+# Runs before everything. Use it to start daemons etc.
+pre: 
+    #- make -C seg6ctl/ 
+    - make -C services/tun_interface/
+    - ./topologies/clear
+    - bash topologies/simple/simple.topo.sh
+      #- bash topologies/simple_lag/simple_lag.topo.sh
+
+# Runs in each window and pane before window/pane specific commands. Useful for setting up interpreter versions.
+# pre_window: rbenv shell 2.0.0-p247
+
+# Pass command line options to tmux. Useful for specifying a different tmux.conf.
+# tmux_options: -f ~/.tmux.mac.conf
+
+# Change the command to call tmux.  This can be used by derivatives/wrappers like byobu.
+# tmux_command: byobu
+
+# Specifies (by name or index) which window will be selected on project startup. If not set, the first window is used.
+# startup_window: logs
+
+# Controls whether the tmux session should be attached to automatically. Defaults to true.
+# attach: false
+
+# Runs after everything. Use it to attach to tmux with custom options etc.
+# post: tmux -CC attach -t chaining
+
+windows:
+    - main:
+        layout: main-horizontal
+        panes:
+            - A:
+                - ip netns exec A bash
+                - ip link set dev A-0 mtu 1300
+                - ethtool -K A-0 tx off
+                #- ping6 $C -I $A
+                #- ethtool -K A-0 tx off
+                - iperf3 -c $C -B $A
+            - B:
+                - ip netns exec B bash
+                - ip -6 route del @C
+                - ip -6 route add @C via §C encap seg6 mode encap segs $D,$E
+
+                  #- ./seg6ctl/seg6ctl -p @C  -a $D
+    - service:
+        layout: main-horizontal
+        panes:
+            - D:
+                - ip netns exec D bash
+                #- ethtool -K D-0 tx off
+                #- ethtool -K D-1 tx off
+                - ./services/tun_interface/tun_interface $D --interface tunX -v
+                #- valgrind --track-origins=yes --leak-check=yes ./services/tun_interface/tun_interface $D --interface tunX
+            - tcpdump:
+                - ip netns exec D bash
+                #- for i in D-0 D-1 default gre0 gretap0 ip6gre0 ip6tnl0 lo sit0 sr6tun0; do echo 1 > "/proc/sys/net/ipv6/conf/$i/forwarding" ; done
+                - sleep 2
+                - ip6tables -A FORWARD -i tunX -j DROP
+                - ifconfig tunX up
+                - ndpiReader -i tunX
+                #- ifconfig tun0 up
+                #- tcpdump -i tun0 -X
+    - C:
+        layout: main-horizontal
+        panes:
+            - C:
+                - ip netns exec C bash
+                #- iperf -V -s -B $C
+                - iperf3 -s -B $C
+
